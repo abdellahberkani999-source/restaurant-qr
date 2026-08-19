@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>لوحة إدارة المطعم</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <header class="admin-header">
+
+        <h1>👨‍🍳 لوحة المطعم</h1>
+
+        <button onclick="clearOrders()">
+            🗑️ حذف الطلبات
+        </button>
+
+    </header>
+
+    <main class="admin-page">
+
+        <div class="orders-header">
+
+            <h2>📋 الطلبات</h2>
+
+            <button onclick="loadOrders()">
+                🔄 تحديث
+            </button>
+
+        </div>
+
+        <div id="orders"></div>
+
+    </main>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
