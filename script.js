@@ -1,5 +1,36 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs,
+    updateDoc,
+    doc,
+    query,
+    orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+
 // ===============================
-// بيانات المنتجات
+// Firebase
+// ===============================
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCWRe2PtIG1SMZ5WovXMvNSBQQXlHNW6p8",
+    authDomain: "restaurant-mena.firebaseapp.com",
+    projectId: "restaurant-mena",
+    storageBucket: "restaurant-mena.firebasestorage.app",
+    messagingSenderId: "280029436673",
+    appId: "1:280029436673:web:e6a5766c23d3231219d900",
+    measurementId: "G-9HDG7G6D6N"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+
+// ===============================
+// المنتجات
 // ===============================
 
 const products = [
@@ -74,9 +105,8 @@ let cart = [];
 
 function getTableNumber() {
 
-    const params = new URLSearchParams(
-        window.location.search
-    );
+    const params =
+        new URLSearchParams(window.location.search);
 
     return params.get("table") || "1";
 }
@@ -140,21 +170,21 @@ function displayProducts(category = "all") {
 
 
 // ===============================
-// فلترة الأصناف
+// فلترة
 // ===============================
 
-function filterCategory(category) {
+window.filterCategory = function(category) {
 
     displayProducts(category);
 
-}
+};
 
 
 // ===============================
 // إضافة للسلة
 // ===============================
 
-function addToCart(productId) {
+window.addToCart = function(productId) {
 
     const product =
         products.find(p => p.id === productId);
@@ -179,7 +209,7 @@ function addToCart(productId) {
 
     alert("تمت إضافة المنتج إلى الطلب ✅");
 
-}
+};
 
 
 // ===============================
@@ -208,7 +238,7 @@ function updateCart() {
 // فتح السلة
 // ===============================
 
-function openCart() {
+window.openCart = function() {
 
     renderCart();
 
@@ -216,20 +246,20 @@ function openCart() {
         .getElementById("cartModal")
         .classList.add("active");
 
-}
+};
 
 
 // ===============================
 // إغلاق السلة
 // ===============================
 
-function closeCart() {
+window.closeCart = function() {
 
     document
         .getElementById("cartModal")
         .classList.remove("active");
 
-}
+};
 
 
 // ===============================
@@ -271,13 +301,17 @@ function renderCart() {
 
             <div class="quantity">
 
-                <button onclick="changeQuantity(${item.id}, -1)">
+                <button
+                    onclick="changeQuantity(${item.id}, -1)"
+                >
                     −
                 </button>
 
                 <span>${item.quantity}</span>
 
-                <button onclick="changeQuantity(${item.id}, 1)">
+                <button
+                    onclick="changeQuantity(${item.id}, 1)"
+                >
                     +
                 </button>
 
@@ -286,7 +320,6 @@ function renderCart() {
         </div>
 
     `).join("");
-
 
     const total =
         cart.reduce(
@@ -305,7 +338,7 @@ function renderCart() {
 // تغيير الكمية
 // ===============================
 
-function changeQuantity(productId, change) {
+window.changeQuantity = function(productId, change) {
 
     const item =
         cart.find(item => item.id === productId);
@@ -327,14 +360,14 @@ function changeQuantity(productId, change) {
 
     renderCart();
 
-}
+};
 
 
 // ===============================
-// إرسال الطلب
+// إرسال الطلب إلى Firestore
 // ===============================
 
-function sendOrder() {
+window.sendOrder = async function() {
 
     if (cart.length === 0) {
 
@@ -354,16 +387,7 @@ function sendOrder() {
             0
         );
 
-
-    const orders =
-        JSON.parse(
-            localStorage.getItem("orders") || "[]"
-        );
-
-
     const order = {
-
-        id: Date.now(),
 
         table: table,
 
@@ -381,147 +405,165 @@ function sendOrder() {
 
         status: "جديد",
 
-        date: new Date().toLocaleString("ar-DZ")
+        createdAt: new Date()
 
     };
 
+    try {
 
-    orders.push(order);
+        const docRef =
+            await addDoc(
+                collection(db, "orders"),
+                order
+            );
 
+        cart = [];
 
-    localStorage.setItem(
-        "orders",
-        JSON.stringify(orders)
-    );
+        updateCart();
 
+        closeCart();
 
-    cart = [];
+        alert(
+            `تم إرسال طلبك بنجاح ✅\nرقم الطلب: ${docRef.id}`
+        );
 
-    updateCart();
+    } catch (error) {
 
-    closeCart();
+        console.error(error);
 
+        alert(
+            "حدث خطأ أثناء إرسال الطلب. تأكد من اتصال الإنترنت."
+        );
 
-    alert(
-        `تم إرسال طلبك بنجاح ✅\nرقم الطلب: #${order.id}`
-    );
+    }
 
-}
+};
 
 
 // ===============================
 // لوحة الإدارة
 // ===============================
 
-function loadOrders() {
+async function loadOrders() {
 
     const container =
         document.getElementById("orders");
 
     if (!container) return;
 
+    try {
 
-    const orders =
-        JSON.parse(
-            localStorage.getItem("orders") || "[]"
-        );
+        const ordersQuery =
+            query(
+                collection(db, "orders"),
+                orderBy("createdAt", "desc")
+            );
 
+        const snapshot =
+            await getDocs(ordersQuery);
 
-    if (orders.length === 0) {
+        if (snapshot.empty) {
+
+            container.innerHTML =
+                '<div class="empty">لا توجد طلبات حالياً.</div>';
+
+            return;
+
+        }
+
+        container.innerHTML = "";
+
+        snapshot.forEach(orderDoc => {
+
+            const order =
+                orderDoc.data();
+
+            const card =
+                document.createElement("div");
+
+            card.className = "order-card";
+
+            card.innerHTML = `
+
+                <div class="order-top">
+
+                    <div>
+
+                        <h3>
+                            الطلب #${orderDoc.id.slice(0, 6)}
+                        </h3>
+
+                        <p>
+                            🪑 الطاولة: ${order.table}
+                        </p>
+
+                    </div>
+
+                    <span class="order-status">
+                        ${order.status}
+                    </span>
+
+                </div>
+
+                <hr>
+
+                ${order.items.map(item => `
+
+                    <div class="order-product">
+
+                        ${item.quantity} ×
+                        ${item.name}
+
+                        —
+                        ${item.price * item.quantity}
+                        دج
+
+                    </div>
+
+                `).join("")}
+
+                <hr>
+
+                <strong>
+                    المجموع: ${order.total} دج
+                </strong>
+
+                <div class="status-buttons">
+
+                    <button
+                        onclick="changeOrderStatus('${orderDoc.id}', 'قيد التحضير')"
+                    >
+                        👨‍🍳 قيد التحضير
+                    </button>
+
+                    <button
+                        onclick="changeOrderStatus('${orderDoc.id}', 'جاهز')"
+                    >
+                        ✅ جاهز
+                    </button>
+
+                    <button
+                        onclick="changeOrderStatus('${orderDoc.id}', 'تم التسليم')"
+                    >
+                        📦 تم التسليم
+                    </button>
+
+                </div>
+
+            `;
+
+            container.appendChild(card);
+
+        });
+
+    } catch (error) {
+
+        console.error(error);
 
         container.innerHTML =
-            '<div class="empty">لا توجد طلبات حالياً.</div>';
-
-        return;
+            '<div class="empty">حدث خطأ في تحميل الطلبات.</div>';
 
     }
-
-
-    container.innerHTML =
-        orders
-        .slice()
-        .reverse()
-        .map(order => `
-
-        <div class="order-card">
-
-            <div class="order-top">
-
-                <div>
-
-                    <h3>
-                        الطلب #${order.id}
-                    </h3>
-
-                    <p>
-                        🪑 الطاولة: ${order.table}
-                    </p>
-
-                    <small>
-                        ${order.date}
-                    </small>
-
-                </div>
-
-                <span class="order-status">
-                    ${order.status}
-                </span>
-
-            </div>
-
-
-            <hr>
-
-
-            ${order.items.map(item => `
-
-                <div class="order-product">
-
-                    ${item.quantity} ×
-                    ${item.name}
-
-                    —
-                    ${item.price * item.quantity}
-                    دج
-
-                </div>
-
-            `).join("")}
-
-
-            <hr>
-
-
-            <strong>
-                المجموع: ${order.total} دج
-            </strong>
-
-
-            <div class="status-buttons">
-
-                <button
-                    onclick="changeOrderStatus(${order.id}, 'قيد التحضير')"
-                >
-                    👨‍🍳 قيد التحضير
-                </button>
-
-                <button
-                    onclick="changeOrderStatus(${order.id}, 'جاهز')"
-                >
-                    ✅ جاهز
-                </button>
-
-                <button
-                    onclick="changeOrderStatus(${order.id}, 'تم التسليم')"
-                >
-                    📦 تم التسليم
-                </button>
-
-            </div>
-
-        </div>
-
-    `).join("");
 
 }
 
@@ -530,56 +572,44 @@ function loadOrders() {
 // تغيير حالة الطلب
 // ===============================
 
-function changeOrderStatus(orderId, status) {
+window.changeOrderStatus =
+    async function(orderId, status) {
 
-    const orders =
-        JSON.parse(
-            localStorage.getItem("orders") || "[]"
-        );
+        try {
 
+            await updateDoc(
+                doc(db, "orders", orderId),
+                {
+                    status: status
+                }
+            );
 
-    const order =
-        orders.find(
-            order => order.id === orderId
-        );
+            loadOrders();
 
+        } catch (error) {
 
-    if (!order) return;
+            console.error(error);
 
+            alert(
+                "تعذر تغيير حالة الطلب."
+            );
 
-    order.status = status;
+        }
 
-
-    localStorage.setItem(
-        "orders",
-        JSON.stringify(orders)
-    );
-
-
-    loadOrders();
-
-}
+    };
 
 
 // ===============================
 // حذف الطلبات
 // ===============================
 
-function clearOrders() {
+window.clearOrders = function() {
 
-    if (
-        confirm(
-            "هل تريد حذف جميع الطلبات؟"
-        )
-    ) {
+    alert(
+        "الحذف الجماعي سنضيفه لاحقاً بطريقة آمنة."
+    );
 
-        localStorage.removeItem("orders");
-
-        loadOrders();
-
-    }
-
-}
+};
 
 
 // ===============================
@@ -588,9 +618,7 @@ function clearOrders() {
 
 document.addEventListener(
     "DOMContentLoaded",
-    function () {
-
-        // صفحة المنيو
+    function() {
 
         if (
             document.getElementById("products")
@@ -610,9 +638,6 @@ document.addEventListener(
 
         }
 
-
-        // لوحة الإدارة
-
         if (
             document.getElementById("orders")
         ) {
@@ -621,7 +646,7 @@ document.addEventListener(
 
             setInterval(
                 loadOrders,
-                3000
+                5000
             );
 
         }
